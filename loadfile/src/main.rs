@@ -1,11 +1,13 @@
 extern crate plotly;
+use std::fs::File;
 use plotly::common::Mode;
 use plotly::{Plot, Scatter, ImageFormat};
 use encoding_rs;
 use std::fs;
 use regex::Regex;
 use std::time::Instant;
-
+use polars::prelude::*;
+use polars::df;
 
 fn main() {
 
@@ -56,6 +58,21 @@ fn main() {
 
     let end = start.elapsed();
     println!( "elapsed time {}.{:03} [sec]", end.as_secs(), end.subsec_nanos() / 1_000_000 );
+
+
+    let s0 = Series::new( "DATETIME", vec_datetime.clone() );
+    let s1 = Series::new( "METHOD", vec_method.clone() );
+    let s2 = Series::new( "MESSAGE", vec_message.clone() );
+    let df = DataFrame::new( vec![s0, s1,s2] ).unwrap();
+
+    // create a file
+    let mut file = File::create("data.csv").expect("could not create file");
+
+    // write DataFrame to file
+    CsvWriter::new( &mut file )
+        .has_header( true )
+        .with_delimiter( b',' )
+        .finish( &df );
 
 
     let trace1 = Scatter::new( vec_datetime, vec_method )
