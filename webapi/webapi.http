@@ -1,0 +1,35 @@
+@URL_ROOT=http://127.0.0.1:8080
+@URL_BASE={{URL_ROOT}}
+
+###
+GET {{URL_BASE}}
+
+
+###
+GET {{URL_BASE}}/hey
+
+
+###
+POST {{URL_BASE}}/echo
+
+test
+
+
+###
+# @name addUser
+POST {{URL_BASE}}/user
+Accept: application/json
+Content-Type: application/json
+
+{
+  "username": "username3",
+  "firstname": "user2",
+  "lastname": "name3"
+}
+
+
+###
+# @name getUser
+GET {{URL_BASE}}/user/maishiro
+Accept: application/json
+Content-Type: application/json
