@@ -2,6 +2,9 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result
 use log::{error, info, warn};
 use log4rs;
 use serde::{Deserialize,Serialize};
+use rbatis::rbatis::Rbatis;
+use rbdc_sqlite::driver::SqliteDriver;
+use rbdc_pg::driver::PgDriver;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -39,8 +42,15 @@ struct MyObj {
 }
 
 #[get("/user/{name}")]
-async fn get_user(name: web::Path<String>) -> Result<impl Responder> {
+async fn get_user(rb: web::Data<Rbatis>,name: web::Path<String>) -> Result<impl Responder> {
     info!("get_user");
+
+    let mut conn = rb.acquire().await.unwrap();
+    let count: u64 = conn
+        .query_decode("select count(*) from win_cpu", vec![])
+        .await
+        .unwrap();
+    println!(">>>>> count={}", count);
 
     let obj = MyObj {
         name: name.to_string(),
@@ -59,8 +69,20 @@ async fn main() -> std::io::Result<()> {
     log4rs::init_file("config/log4rs.yaml", Default::default()).unwrap();
     info!("booting up");
 
-    HttpServer::new(|| {
+    let rb = Rbatis::new();
+    // connect to database  
+    // postgresql 
+    rb.init(PgDriver{},"postgres://postgres:postgres@localhost:5432/telegraf").unwrap();
+
+    let count: u64 = rb
+        .query_decode("select count(*) from win_cpu", vec![])
+        .await
+        .unwrap();
+    println!(">>>>> count={}", count);
+
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(rb.clone()))
             .service(hello)
             .service(echo)
             .service(add_user)
