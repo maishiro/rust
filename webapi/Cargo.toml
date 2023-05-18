@@ -10,3 +10,10 @@ actix-web = "4"
 log = "0.4.17"
 log4rs = "1.2.0"
 serde = { version = "1.0", features = ["derive"] }
+#rbatis deps
+rbs = { version = "4.3"}
+rbatis = { version = "4.3"}
+rbdc-sqlite = { version = "4.3" }
+#rbdc-mysql={version="4.3"}
+rbdc-pg={version="4.3"}
+#rbdc-mssql={version="4.3"}
