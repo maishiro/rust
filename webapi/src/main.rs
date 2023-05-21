@@ -1,14 +1,27 @@
 #[macro_use]
 extern crate rbatis;
 
+use std::fs::File;
+use std::io::prelude::*;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result, HttpRequest};
 use log::info;
 use log4rs;
 use serde::{Deserialize,Serialize};
-use serde_json::json;
 use rbatis::rbatis::Rbatis;
 use rbdc_sqlite::driver::SqliteDriver;
 use rbdc_pg::driver::PgDriver;
+
+#[derive(Debug, Deserialize)]
+struct Config {
+   db1: DBInfo,
+   db2: DBInfo,
+}
+
+#[derive(Debug, Deserialize)]
+struct DBInfo {
+    kind: String,
+    connect: String,
+}
 
 
 #[get("/")]
@@ -86,13 +99,12 @@ async fn main() -> std::io::Result<()> {
     log4rs::init_file("config/log4rs.yaml", Default::default()).unwrap();
     info!("booting up");
 
-    // connect to database  
-    // SQLite
-    let rb1 = Rbatis::new();
-    rb1.init(SqliteDriver{},"sqlite://target/sqlite.db").unwrap();
-    // postgresql 
-    let rb2 = Rbatis::new();
-    rb2.init(PgDriver{},"postgres://postgres:postgres@localhost:5432/postgres").unwrap();
+    let mut f = File::open("config/setting.toml").unwrap();
+    let mut contents = String::new();
+    f.read_to_string(&mut contents).unwrap();
+    let config: Config = toml::from_str(&contents).unwrap();
+
+    let ( rb1, rb2 ) = get_connect_db( config );
 
     let repos = Repository {
         db1: rb1.clone(),
@@ -121,4 +133,20 @@ async fn main() -> std::io::Result<()> {
     .bind(("0.0.0.0", 8080))?
     .run()
     .await
+}
+
+fn get_connect_db( config: Config ) -> (Rbatis,Rbatis) {
+    let rb1 = get_connect( config.db1.kind, config.db1.connect );
+    let rb2 = get_connect( config.db2.kind, config.db2.connect );
+    (rb1,rb2)
+}
+
+fn get_connect( drv: String, con: String ) -> Rbatis {
+    let rb: Rbatis = Rbatis::new();
+    if drv == "SQLite" {
+        rb.init(SqliteDriver{}, con.as_str()).unwrap();
+    } else if drv == "PostgreSQL" {
+        rb.init(PgDriver{}, con.as_str()).unwrap();
+    }
+    rb
 }

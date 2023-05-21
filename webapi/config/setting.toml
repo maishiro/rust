@@ -1,0 +1,7 @@
+[db1]
+kind = "SQLite"
+connect = "sqlite://target/sqlite.db"
+
+[db2]
+kind = "PostgreSQL"
+connect = "postgres://postgres:postgres@localhost:5432/postgres"
