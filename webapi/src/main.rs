@@ -1,15 +1,17 @@
 #[macro_use]
 extern crate rbatis;
 
-use std::fs::File;
+use std::{fs::File, fmt::Debug};
 use std::io::prelude::*;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result, HttpRequest};
 use log::info;
 use log4rs;
 use serde::{Deserialize,Serialize};
-use rbatis::rbatis::Rbatis;
+use rbatis::{rbatis::Rbatis, rbdc::datetime::DateTime};
 use rbdc_sqlite::driver::SqliteDriver;
 use rbdc_pg::driver::PgDriver;
+use polars::prelude::*;
+use chrono::prelude::*;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -94,6 +96,15 @@ struct Repository {
     db2: Rbatis,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WinMem {
+    pub timestamp: Option<DateTime>,
+    pub host: Option<String>,
+    pub standby_cache_reserve_bytes: Option<i32>,
+    pub demand_zero_faults_persec: Option<f32>,
+}
+rbatis::crud!(WinMem{},"public.win_mem");
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     log4rs::init_file("config/log4rs.yaml", Default::default()).unwrap();
@@ -119,6 +130,33 @@ async fn main() -> std::io::Result<()> {
         .await
         .unwrap();
     info!("user count={}", count);
+
+    let table: Vec<WinMem> = rb2
+        .query_decode("select timestamp, host, \"Standby_Cache_Reserve_Bytes\" as standby_cache_reserve_bytes, \"Demand_Zero_Faults_persec\" as demand_zero_faults_persec from public.win_mem limit 10;", vec![])
+        .await
+        .unwrap();
+    info!("data table={:?}", table);
+    // rbdc::types::datetime to chrono::naive::datetime
+    let mut v1: Vec<String> = Vec::new();
+    let mut v2: Vec<String> = Vec::new();
+    let mut v3: Vec<i32> = Vec::new();
+    let mut v4: Vec<f32> = Vec::new();
+    for row in table {
+        let dt: DateTime = row.timestamp.unwrap();
+        v1.push(format!("{}-{:02}-{:02}T{:02}:{:02}:{:02}",dt.year,dt.mon,dt.day,dt.hour,dt.min,dt.sec));
+        v2.push(row.host.unwrap());
+        v3.push(row.standby_cache_reserve_bytes.unwrap());
+        v4.push(row.demand_zero_faults_persec.unwrap());
+    }
+    let fmt = "%Y-%m-%dT%H:%M:%S";
+    let date_series: Vec<NaiveDateTime> = v1.iter().map(|date_str| NaiveDateTime::parse_from_str(date_str.as_str(), fmt).unwrap()).collect();
+    let s1 = Series::new("timestamp", date_series);
+    let s2 = Series::new("host", v2);
+    let s3 = Series::new("standby", v3);
+    let s4 = Series::new("demand", v4);
+    let df = DataFrame::new(vec![s1,s2,s3,s4]).unwrap();
+    info!("df={:?}", df.shape() );
+    info!("df:{:?}", df["timestamp"] );
 
     HttpServer::new(move || {
         App::new()
