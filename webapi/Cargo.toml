@@ -20,3 +20,5 @@ rbdc-sqlite = { version = "4.3" }
 rbdc-pg={version="4.3"}
 #rbdc-mssql={version="4.3"}
 toml = "0.7.4"
+polars = "0.29.0"
+chrono = "0.4.24"
