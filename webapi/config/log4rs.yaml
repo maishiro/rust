@@ -3,22 +3,23 @@ appenders:
   stdout:
     kind: console
     encoder:
-      pattern: "{d} {m}{n}"    
-  requests:
-    kind: file
-    path: "log/requests.log"
+      pattern: "{d} {m}{n}"
+  rolling_file:
+    kind: rolling_file
+    path: log/requests.log
     encoder:
       pattern: "{d} {m}{n}"
+    policy:
+      trigger:
+        kind: size
+        limit: 1 mb
+      roller:
+        kind: fixed_window
+        pattern: log/requests_{}.log
+        count: 5
+        base: 1
 root:
   level: info
   appenders:
     - stdout
-    - requests
-loggers:
-  app::backend::db:
-    level: info
-  app::requests:
-    level: info
-    appenders:
-      - requests
-    additive: false
+    - rolling_file
