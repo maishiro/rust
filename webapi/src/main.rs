@@ -188,3 +188,46 @@ fn get_connect( drv: String, con: String ) -> Rbatis {
     }
     rb
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{
+        test, http, web::Bytes,
+    };
+
+    #[actix_web::test]
+    async fn test_manual_hello() {
+        let app = test::init_service(App::new().route("/", web::get().to(manual_hello))).await;
+        let req = test::TestRequest::get().to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK);
+        let result = test::read_body(resp).await;
+        assert_eq!(result, Bytes::from_static(b"Hey there!"));
+    }
+
+    #[actix_web::test]
+    async fn test_hello() {
+        let app = test::init_service(App::new().service(hello)).await;
+        let req = test::TestRequest::get().to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK);
+        let result = test::read_body(resp).await;
+        assert_eq!(result, Bytes::from_static(b"Hello world!"));
+    }
+
+    #[actix_web::test]
+    async fn test_echo() {
+        let app = test::init_service(App::new().service(echo)).await;
+        let payload = r#"test string"#.as_bytes();
+        let req = test::TestRequest::post()
+            .uri("/echo")
+            .set_payload(payload)
+            .to_request();
+        let result = test::call_and_read_body(&app, req).await;
+        assert_eq!(result, Bytes::from_static(b"test string"));
+    }
+}
