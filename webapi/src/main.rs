@@ -269,11 +269,9 @@ mod tests {
             .app_data(web::Data::new(data.clone()))
             .service(get_user)
         ).await;
-        let data = Repository{ db1: Rbatis::new(), db2: Rbatis::new() };
         let req = test::TestRequest::get()
             .uri("/user/username13")
             .insert_header((http::header::CONTENT_TYPE, "application/json"))
-            .app_data(web::Data::new(data.clone()))
             .to_request();
         let resp: UserInfo = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.username, Some(String::from("username13")));
