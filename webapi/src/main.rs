@@ -79,7 +79,7 @@ async fn get_user(repo: web::Data<Repository>,name: web::Path<String>,req: HttpR
     info!("Content-Type: {}", cont_type.to_str().unwrap());
 
     let mut conn = repo.db2.clone();
-    let data = UserInfo::select_by_name(&mut conn, name.to_string()).await.unwrap();
+    let data: Vec<UserInfo> = UserInfo::select_by_name(&mut conn, name.to_string()).await.unwrap();
 
     Ok(web::Json(data[0].clone()))
 }
@@ -193,6 +193,7 @@ fn get_connect( drv: String, con: String ) -> Rbatis {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use actix_web::{
         test, http, web::Bytes,
     };
@@ -230,4 +231,52 @@ mod tests {
         let result = test::call_and_read_body(&app, req).await;
         assert_eq!(result, Bytes::from_static(b"test string"));
     }
+
+    #[actix_web::test]
+    #[ignore]
+    async fn test_add_user() {
+        let rb: Rbatis = Rbatis::new();
+        rb.init(PgDriver{}, "postgres://postgres:postgres@localhost:5432/telegraf").unwrap();
+        let data = Repository{ db1: Rbatis::new(), db2: rb };
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(data.clone()))
+                .service(add_user)
+        ).await;
+        let request_body = json!({
+            "username": "username3",
+            "firstname": "user2",
+            "lastname": "name3"
+        });
+        let req = test::TestRequest::post()
+            .uri("/user")
+            .set_json(request_body)
+            .to_request();
+        let result = test::call_and_read_body(&app, req).await;
+        assert_eq!(result, Bytes::from_static(b"Welcome username3!"));
+    }
+
+    #[actix_web::test]
+    #[ignore]
+    async fn test_get_user() {
+        let rb: Rbatis = Rbatis::new();
+        rb.init(PgDriver{}, "postgres://postgres:postgres@localhost:5432/telegraf").unwrap();
+        let data = Repository{ db1: Rbatis::new(), db2: rb };
+
+        let app = test::init_service(
+            App::new()
+            .app_data(web::Data::new(data.clone()))
+            .service(get_user)
+        ).await;
+        let data = Repository{ db1: Rbatis::new(), db2: Rbatis::new() };
+        let req = test::TestRequest::get()
+            .uri("/user/username13")
+            .insert_header((http::header::CONTENT_TYPE, "application/json"))
+            .app_data(web::Data::new(data.clone()))
+            .to_request();
+        let resp: UserInfo = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(resp.username, Some(String::from("username13")));
+    }
+
 }
